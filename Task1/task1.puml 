@@ -1,0 +1,44 @@
+@startuml
+!define C4P https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master
+!include C4P/C4_Container.puml
+
+title C4 Container Diagram — Data Mesh
+
+
+System_Boundary(core, "Core Applications (DDD Domains)") {
+  Container(core_app, "Domain Services", "Spring Boot / gRPC", "Пациенты, Медики, ФИНТЕХ,  — REST/gRPC API")
+}
+
+
+System_Boundary(data_mesh, "Data Mesh Platform") {
+  Container(kafka, "Kafka", "Apache Kafka", "Event Hub для всех доменов")
+  Container(airflow, "Airflow", "Apache Airflow", "ETL/ELT пайплайны и оркестрация")
+  Container(iceberg, "Iceberg", "Apache Iceberg (S3)", "Хранилище аналитики")
+  Container(nessie, "Nessie", "Project Nessie", "Контроль версий  Iceberg")
+  Container(datahub, "DataHub", "LinkedIn DataHub", "Каталог данных, метаданные, data lineage")
+  Container(trino, "Trino", "Trino", "SQL  для запросов к Iceberg и Kafka")
+  Container(superset, "Superset", "Apache Superset", "BI витрины")
+}
+
+
+System_Boundary(infra, "Infrastructure Layer") {
+  Container(apiGw, "API Gateway", "Kong", "Роутинг, защита API")
+  Container(auth, "Keycloak", "Keycloak", "OAuth2, RBAC")
+}
+
+Rel(airflow, iceberg, "Запись агрегированных таблиц", "Parquet")
+Rel(iceberg, nessie, "Версионирование", "Git-like commits")
+Rel(kafka, datahub, "Событийный lineage", "Kafka Connect")
+Rel(airflow, datahub, "Регистрация схем и пайплайнов", "Metadata API")
+Rel(core_app, kafka, "Публикация доменных событий", "Avro/JSON")
+Rel(kafka, airflow, "Триггер пайплайнов", "Consumer")
+
+Rel(trino, iceberg, "SQL-запросы", "Iceberg catalog")
+Rel(trino, kafka, "Запросы к стримам", "Kafka topics")
+Rel(superset, trino, "BI-запросы", "JDBC/ODBC")
+
+
+Rel(apiGw, core_app, "API вызовы", "REST/gRPC")
+Rel(apiGw, auth, "Аутентификация и авторизация", "OAuth2 / JWT")
+
+@enduml
